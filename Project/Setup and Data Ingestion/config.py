@@ -1,5 +1,5 @@
 CONFIG = {
-    "catalog" : "world_happiness_report"
-    "volume" : "raw_data"
+    "catalog" : "world_happiness_report",
+    "volume" : "raw_data",
     "kaggle_dataset": ""
 }
