@@ -1,12 +1,12 @@
 # File where it setups the needed structure (the catalog, schema, volume and layers)
 from pyspark.sql import SparkSession
-
+import config import CONFIG
 #Starting up Spark
 spark = SparkSession.builder.getOrCreate()
 
 #Configuring the names of the catalog and the volume
-CATALOG = "world_happiness_report"
-VOLUME = "raw_data"
+CATALOG = CONFIG["catalog"]
+VOLUME = CONFIG["volume"]
 
 #Creating the Catalog
 spark.sql(f"CREATE CATALOG IF NOT EXISTS {CATALOG}")
