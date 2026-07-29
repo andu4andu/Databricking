@@ -48,7 +48,7 @@ for schema in ["bronze", "silver", "gold"]:
 
 #Checking if the Volume was created
 
-volumes = spark.sql("show volumes in {CATALAOG}.bronze").collect()
+volumes = spark.sql(f"show volumes in {CATALOG}.bronze").collect()
 volume_name = [row["volume_name"] for row in volumes]
 
 if VOLUME in volume_name:
