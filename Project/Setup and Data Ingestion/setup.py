@@ -20,6 +20,8 @@ spark.sql(f"create schema if not exists {CATALOG}.gold")
 spark.sql(f"""
     create volume if not exists {CATALOG}.bronze.{VOLUME}
 """)
+#Checking errors
+errors=[]
 
 #Checking if the Catalog was created
 
@@ -30,6 +32,7 @@ if CATALOG in catalog_names:
     print(f"Catalaog '{CATALOG}' was created successfully")
 else:
     print(f"Catalog '{CATALOG}' was NOT created")
+    errors.append(f"Catalog: {CATALOG}")
 
 #Checking if the Schemas were created
 
@@ -41,4 +44,24 @@ for schema in ["bronze", "silver", "gold"]:
         print(f"Schema '{schema}' was created successfully")
     else:
         print(f"Schema '{schema}' was NOT created")
+        errors.append(f"Schema:{CATALOG}.{schema}")
 
+#Checking if the Volume was created
+
+volumes = spark.sql("show volumes in {CATALAOG}.bronze").collect()
+volume_name = [row["volume_name"] for row in volumes]
+
+if VOLUME in volume_name:
+    print(f"Volume {VOLUME} was successfully created.")
+else:
+    print(f"Volume {VOLUME} was not created")
+    errors.append(f"Volume: {CATALOG}.bronze.{VOLUME}")
+
+#Final summary
+
+if errors:
+    print(f"\n Setup completed with errors. The following were NOT created:")
+    for item in errors:
+        print(f"    - {item}")
+else:
+    print("\n Setup completed succesfully.")
