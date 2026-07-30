@@ -1,69 +1,67 @@
 import dlt
-import os
 from pyspark.sql import functions as F
 
 COLUMN_MAPS = {
     "2015": {
         "Country": "country",
-        "Happiness Rank": "happiness_rank",
-        "Happiness Score": "happiness_score",
-        "Economy (GDP per Capita)": "gdp_per_capita",
+        "Happiness_Rank": "happiness_rank",
+        "Happiness_Score": "happiness_score",
+        "Economy_GDP_per_Capita": "gdp_per_capita",
         "Family": "social_support",
-        "Health (Life Expectancy)": "health",
+        "Health_Life_Expectancy": "health",
         "Freedom": "freedom",
         "Generosity": "generosity",
-        "Trust (Government Corruption)": "corruption"
+        "Trust_Government_Corruption": "corruption"
     },
     "2016": {
         "Country": "country",
-        "Happiness Rank": "happiness_rank",
-        "Happiness Score": "happiness_score",
-        "Economy (GDP per Capita)": "gdp_per_capita",
+        "Happiness_Rank": "happiness_rank",
+        "Happiness_Score": "happiness_score",
+        "Economy_GDP_per_Capita": "gdp_per_capita",
         "Family": "social_support",
-        "Health (Life Expectancy)": "health",
+        "Health_Life_Expectancy": "health",
         "Freedom": "freedom",
         "Generosity": "generosity",
-        "Trust (Government Corruption)": "corruption"
+        "Trust_Government_Corruption": "corruption"
     },
     "2017": {
         "Country": "country",
-        "Happiness.Rank": "happiness_rank",
-        "Happiness.Score": "happiness_score",
-        "Economy..GDP.per.Capita.": "gdp_per_capita",
+        "Happiness_Rank": "happiness_rank",
+        "Happiness_Score": "happiness_score",
+        "Economy__GDP_per_Capita_": "gdp_per_capita",
         "Family": "social_support",
-        "Health..Life.Expectancy.": "health",
+        "Health__Life_Expectancy_": "health",
         "Freedom": "freedom",
         "Generosity": "generosity",
-        "Trust..Government.Corruption.": "corruption"
+        "Trust__Government_Corruption_": "corruption"
     },
     "2018": {
-        "Country or region": "country",
-        "Overall rank": "happiness_rank",
+        "Country_or_region": "country",
+        "Overall_rank": "happiness_rank",
         "Score": "happiness_score",
-        "GDP per capita": "gdp_per_capita",
-        "Social support": "social_support",
-        "Healthy life expectancy": "health",
-        "Freedom to make life choices": "freedom",
+        "GDP_per_capita": "gdp_per_capita",
+        "Social_support": "social_support",
+        "Healthy_life_expectancy": "health",
+        "Freedom_to_make_life_choices": "freedom",
         "Generosity": "generosity",
-        "Perceptions of corruption": "corruption"
+        "Perceptions_of_corruption": "corruption"
     },
     "2019": {
-        "Country or region": "country",
-        "Overall rank": "happiness_rank",
+        "Country_or_region": "country",
+        "Overall_rank": "happiness_rank",
         "Score": "happiness_score",
-        "GDP per capita": "gdp_per_capita",
-        "Social support": "social_support",
-        "Healthy life expectancy": "health",
-        "Freedom to make life choices": "freedom",
+        "GDP_per_capita": "gdp_per_capita",
+        "Social_support": "social_support",
+        "Healthy_life_expectancy": "health",
+        "Freedom_to_make_life_choices": "freedom",
         "Generosity": "generosity",
-        "Perceptions of corruption": "corruption"
+        "Perceptions_of_corruption": "corruption"
     }
 }
 
 COUNTRY_NAME_MAP = {
     "Hong Kong S.A.R., China": "Hong Kong",
     "Macedonia": "North Macedonia",
-    "North Cyprus": "North Cyprus",
     "Northern Cyprus": "North Cyprus",
     "Somaliland region": "Somaliland Region",
     "Taiwan Province of China": "Taiwan",
@@ -74,7 +72,7 @@ STANDARD_COLUMNS = ["year", "country", "happiness_rank", "happiness_score",
                     "gdp_per_capita", "social_support", "health",
                     "freedom", "generosity", "corruption"]
 
-bronze_path = "/Volumes/world_happiness_report/bronze/raw_data"
+years = ["2015", "2016", "2017", "2018", "2019"]
 
 @dlt.table(
     name="world_happiness_silver",
@@ -83,13 +81,10 @@ bronze_path = "/Volumes/world_happiness_report/bronze/raw_data"
 def world_happiness_silver():
     all_dfs = []
 
-    for filename in sorted(os.listdir(bronze_path)):
-        year = filename.replace(".csv", "")
+    for year in years:
         mapping = COLUMN_MAPS.get(year)
-        if not mapping:
-            continue
 
-        df = spark.read.option("header", True).option("inferSchema", True).csv(f"{bronze_path}/{filename}")
+        df = dlt.read(f"world_happiness_bronze_{year}")
 
         for old_col, new_col in mapping.items():
             df = df.withColumnRenamed(old_col, new_col)
@@ -98,14 +93,11 @@ def world_happiness_silver():
 
         df = df.withColumn("country", F.trim(F.col("country")))
 
-        # Standardize country names
         for wrong, correct in COUNTRY_NAME_MAP.items():
             df = df.withColumn("country", F.when(F.col("country") == wrong, correct).otherwise(F.col("country")))
 
-        # Cast happiness_rank to integer
         df = df.withColumn("happiness_rank", F.col("happiness_rank").cast("integer"))
 
-        # Round numeric columns to 3 decimal places
         for col_name in ["happiness_score", "gdp_per_capita", "social_support",
                          "health", "freedom", "generosity", "corruption"]:
             df = df.withColumn(col_name, F.round(F.col(col_name).cast("double"), 3))
@@ -116,13 +108,8 @@ def world_happiness_silver():
     for df in all_dfs[1:]:
         combined = combined.union(df)
 
-    # Drop rows where core columns are null
     combined = combined.dropna(subset=["country", "happiness_score", "happiness_rank"])
-
-    # Filter out invalid ranks
     combined = combined.filter(F.col("happiness_rank") >= 1)
-
-    # Drop duplicate rows for the same country and year
     combined = combined.dropDuplicates(["country", "year"])
 
     return combined
